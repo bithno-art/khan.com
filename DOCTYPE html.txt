@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Pong Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <canvas id="pong" width="800" height="500"></canvas>
+    <script src="script.js"></script>
+</body>
+</html>
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #222;
+    height: 100vh;
+    margin: 0;
+}
+#pong {
+    background: #111;
+    display: block;
+    border: 4px solid #fff;
+    box-shadow: 0 0 40px #000;
+}
+const canvas = document.getElementById("pong");
+const ctx = canvas.getContext("2d");
+
+// Game constants
+const PADDLE_WIDTH = 10, PADDLE_HEIGHT = 100;
+const BALL_SIZE = 12;
+const PADDLE_SPEED = 8;
+const AI_SPEED = 5;
+
+// Game state
+let leftPaddle = {
+    x: 0,
+    y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+    width: PADDLE_WIDTH,
+    height: PADDLE_HEIGHT,
+    dy: 0,
+};
+let rightPaddle = {
+    x: canvas.width - PADDLE_WIDTH,
+    y: canvas.height / 2 - PADDLE_HEIGHT / 2,
+    width: PADDLE_WIDTH,
+    height: PADDLE_HEIGHT,
+    dy: 0,
+};
+let ball = {
+    x: canvas.width / 2 - BALL_SIZE / 2,
+    y: canvas.height / 2 - BALL_SIZE / 2,
+    size: BALL_SIZE,
+    speed: 6,
+    dx: 6 * (Math.random() > 0.5 ? 1 : -1),
+    dy: 4 * (Math.random() > 0.5 ? 1 : -1),
+};
+let score = { left: 0, right: 0 };
+
+// Draw functions
+function drawRect(x, y, w, h, color="#fff") {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+}
+function drawCircle(x, y, r, color="#fff") {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.fill();
+}
+function drawText(text, x, y, size=36, color="#fff") {
+    ctx.fillStyle = color;
+    ctx.font = `bold ${size}px Arial`;
+    ctx.textAlign = "center";
+    ctx.fillText(text, x, y);
+}
+function drawNet() {
+    for(let i=0; i<canvas.height; i+=30) {
+        drawRect(canvas.width/2-2, i, 4, 20, "#888");
+    }
+}
+function drawScore() {
+    drawText(score.left, canvas.width/4, 50);
+    drawText(score.right, canvas.width*3/4, 50);
+}
+
+// Game logic
+function resetBall() {
+    ball.x = canvas.width / 2 - BALL_SIZE / 2;
+    ball.y = canvas.height / 2 - BALL_SIZE / 2;
+    ball.dx = ball.speed * (Math.random() > 0.5 ? 1 : -1);
+    ball.dy = 4 * (Math.random() > 0.5 ? 1 : -1);
+}
+function update() {
+    // Move paddles
+    leftPaddle.y += leftPaddle.dy;
+    // Mouse control will override leftPaddle.dy, see mousemove event
+
+    // Prevent paddles from leaving canvas
+    if (leftPaddle.y < 0) leftPaddle.y = 0;
+    if (leftPaddle.y + PADDLE_HEIGHT > canvas.height) leftPaddle.y = canvas.height - PADDLE_HEIGHT;
+    if (rightPaddle.y < 0) rightPaddle.y = 0;
+    if (rightPaddle.y + PADDLE_HEIGHT > canvas.height) rightPaddle.y = canvas.height - PADDLE_HEIGHT;
+
+    // AI: Move right paddle towards the ball
+    let target = ball.y - rightPaddle.height/2 + ball.size/2;
+    if (rightPaddle.y < target) {
+        rightPaddle.y += Math.min(AI_SPEED, target - rightPaddle.y);
+    } else if (rightPaddle.y > target) {
+        rightPaddle.y -= Math.min(AI_SPEED, rightPaddle.y - target);
+    }
+
+    // Move ball
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Ball collision with top/bottom
+    if (ball.y < 0) {
+        ball.y = 0;
+        ball.dy *= -1;
+    }
+    if (ball.y + ball.size > canvas.height) {
+        ball.y = canvas.height - ball.size;
+        ball.dy *= -1;
+    }
+
+    // Ball collision with paddles
+    // Left paddle
+    if (ball.x < leftPaddle.x + leftPaddle.width &&
+        ball.x > leftPaddle.x &&
+        ball.y + ball.size > leftPaddle.y &&
+        ball.y < leftPaddle.y + leftPaddle.height) {
+        ball.x = leftPaddle.x + leftPaddle.width;
+        ball.dx *= -1.1; // Increase speed
+        ball.dy += (Math.random() - 0.5) * 2;
+    }
+    // Right paddle
+    if (ball.x + ball.size > rightPaddle.x &&
+        ball.x + ball.size < rightPaddle.x + rightPaddle.width &&
+        ball.y + ball.size > rightPaddle.y &&
+        ball.y < rightPaddle.y + rightPaddle.height) {
+        ball.x = rightPaddle.x - ball.size;
+        ball.dx *= -1.1; // Increase speed
+        ball.dy += (Math.random() - 0.5) * 2;
+    }
+
+    // Score
+    if (ball.x < 0) {
+        score.right++;
+        resetBall();
+    }
+    if (ball.x + ball.size > canvas.width) {
+        score.left++;
+        resetBall();
+    }
+}
+
+function draw() {
+    // Clear
+    drawRect(0,0,canvas.width,canvas.height,"#111");
+    drawNet();
+    drawScore();
+    // Draw paddles
+    drawRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height);
+    drawRect(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height);
+    // Draw ball
+    drawRect(ball.x, ball.y, ball.size, ball.size);
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+// Paddle controls
+document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowUp") leftPaddle.dy = -PADDLE_SPEED;
+    if (e.key === "ArrowDown") leftPaddle.dy = PADDLE_SPEED;
+});
+document.addEventListener("keyup", (e) => {
+    if (e.key === "ArrowUp" || e.key === "ArrowDown") leftPaddle.dy = 0;
+});
+// Mouse control
+canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    leftPaddle.y = mouseY - leftPaddle.height / 2;
+    // Clamp
+    if (leftPaddle.y < 0) leftPaddle.y = 0;
+    if (leftPaddle.y + leftPaddle.height > canvas.height) leftPaddle.y = canvas.height - leftPaddle.height;
+});
+
+// Start game
+loop();
